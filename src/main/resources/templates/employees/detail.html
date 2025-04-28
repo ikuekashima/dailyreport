@@ -53,6 +53,9 @@
                                     <div class="col-auto">
                                         <a th:href="@{/employees}" class="btn btn-primary">戻る</a>
                                     </div>
+                                    <div>
+                            <a th:href="@{/employees/add}" class="btn btn-primary">従業員更新画面へ画面遷移するボタン</a>
+                        </div>
                                 </div>
                                 <span th:if="${deleteError} neq null" th:text="${deleteError}" class="text-danger"></span>
                             </div>
