@@ -1,5 +1,6 @@
 package com.techacademy.controller;
 
+import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -12,13 +13,13 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-
 import com.techacademy.constants.ErrorKinds;
 import com.techacademy.constants.ErrorMessage;
-
 import com.techacademy.entity.Employee;
 import com.techacademy.service.EmployeeService;
 import com.techacademy.service.UserDetail;
+
+import jakarta.validation.constraints.Pattern;
 
 @Controller
 @RequestMapping("employees")
@@ -31,6 +32,38 @@ public class EmployeeController {
         this.employeeService = employeeService;
     }
 
+    private ErrorKinds employeePasswordCheck(Employee employee) {
+        // パスワードがnullまたは空の場合、エラーを返す
+        if (employee.getPassword() == null || employee.getPassword().isEmpty()) {
+            System.out.println("パスワードが入力されていません"); // デバッグ用ログ
+            return ErrorKinds.BLANK_ERROR;
+        }
+
+        // 半角英数字チェック
+        if (isHalfSizeCheckError(employee)) {
+            return ErrorKinds.HALFSIZE_ERROR;
+        }
+
+        // 文字数チェック
+        if (isOutOfRangePassword(employee)) {
+            return ErrorKinds.RANGECHECK_ERROR;
+        }
+
+        Object passwordEncoder;
+        // パスワードを暗号化
+
+        return ErrorKinds.CHECK_OK;
+    }
+
+    private boolean isHalfSizeCheckError(Employee employee) {
+        // TODO 自動生成されたメソッド・スタブ
+        return false;
+    }
+
+    private boolean isOutOfRangePassword(Employee employee) {
+        // TODO 自動生成されたメソッド・スタブ
+        return false;
+    }
     // 従業員一覧画面
     @GetMapping
     public String list(Model model) {
@@ -38,92 +71,34 @@ public class EmployeeController {
         model.addAttribute("employeeList", employeeService.findAll());
         return "employees/list";
     }
-
- // 従業員更新画面
-    /*@GetMapping(value = "/{code}/update")
-    public String update(@PathVariable("code") String code, Model model) {
-        model.addAttribute("employee", employeeService.findByCode(code)); // 該当従業員データを設定
-        return "employees/update"; // 更新画面テンプレート
-    }
-*/
-
-
-    @PostMapping(value = "/{code}/update")
-    public String update(@PathVariable("code") String code, @Validated @ModelAttribute Employee employee, BindingResult res, Model model) {
-        if (res.hasErrors()) {
-            // エラー発生時、再度更新画面に戻す
-            model.addAttribute("employee", employee);
-            return "employees/update";
-        }
-
-        try {
-            // 更新処理
-            employeeService.save(employee);
-        } catch (Exception e) {
-            model.addAttribute("errorMessage", "更新処理中にエラーが発生しました。");
-            model.addAttribute("employee", employee);
-            return "employees/update";
-        }
-
-        // 正常時は一覧画面にリダイレクト
-        return "redirect:/employees";
-    }
-    // 従業員詳細画面
     @GetMapping(value = "/{code}/")
     public String detail(@PathVariable("code") String code, Model model) {
+        // 該当する従業員データを取得
         model.addAttribute("employee", employeeService.findByCode(code));
-        return "employees/detail";
+        return "employees/detail"; // 適切なテンプレート名を返す
     }
-
-    // 従業員新規登録画面
-    @GetMapping(value = "/add")
-    public String create(@ModelAttribute Employee employee) {
-        return "employees/new";
+    @GetMapping(value = "/{code}/update")
+    public String update(@PathVariable("code") String code, Model model) {
+        // 該当する従業員データを取得
+        model.addAttribute("employee", employeeService.findByCode(code));
+        // 必要な権限リストを設定
+        model.addAttribute("roles", List.of("一般", "管理者"));
+        return "employees/update"; // 更新画面テンプレート
     }
+    @PostMapping(value = "/{code}/update")
+    public String update(@PathVariable("code") String code, @Validated @ModelAttribute Employee employee, BindingResult result, Model model) {
+        System.out.println("POSTリクエスト受信: code=" + code);
 
-    // 従業員新規登録処理
-    @PostMapping(value = "/add")
-    public String add(@Validated Employee employee, BindingResult res, Model model) {
-        if ("".equals(employee.getPassword())) {
-            model.addAttribute(ErrorMessage.getErrorName(ErrorKinds.BLANK_ERROR),
-                    ErrorMessage.getErrorValue(ErrorKinds.BLANK_ERROR));
-            return create(employee);
+        if (result.hasErrors()) {
+            model.addAttribute("employee", employee);
+            model.addAttribute("roles", List.of("一般", "管理者")); // 必要な権限リスト
+            return "employees/update"; // エラー時に更新画面を再表示
         }
 
-        if (res.hasErrors()) {
-            return create(employee);
-        }
-
-        try {
-            ErrorKinds result = employeeService.save(employee);
-            if (ErrorMessage.contains(result)) {
-                model.addAttribute(ErrorMessage.getErrorName(result), ErrorMessage.getErrorValue(result));
-                return create(employee);
-            }
-        } catch (DataIntegrityViolationException e) {
-            model.addAttribute(ErrorMessage.getErrorName(ErrorKinds.DUPLICATE_EXCEPTION_ERROR),
-                    ErrorMessage.getErrorValue(ErrorKinds.DUPLICATE_EXCEPTION_ERROR));
-            return create(employee);
-        }
-        return "redirect:/employees";
+        // 更新処理
+        employeeService.save(employee);
+        return "redirect:/employees"; // 正常時は一覧画面にリダイレクト
     }
 
-    // 従業員削除処理
-    @PostMapping(value = "/{code}/delete")
-    public String delete(@PathVariable("code") String code, @AuthenticationPrincipal UserDetail userDetail, Model model) {
-        ErrorKinds result = employeeService.delete(code, userDetail);
-        if (ErrorMessage.contains(result)) {
-            model.addAttribute(ErrorMessage.getErrorName(result), ErrorMessage.getErrorValue(result));
-            model.addAttribute("employee", employeeService.findByCode(code));
-            return detail(code, model);
-        }
-        return "redirect:/employees";
-    }
 
-    // 新規作成画面表示用アクション
-    @GetMapping(value = "/newScreen")
-    public String showNewScreen(Model model) {
-        model.addAttribute("someAttribute", "value");
-        return "employees/newScreen"; // 新規画面のテンプレートファイル名
-    }
 }

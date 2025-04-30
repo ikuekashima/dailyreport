@@ -30,7 +30,7 @@ public class EmployeeService {
     public ErrorKinds save(Employee employee) {
 
         // パスワードチェック
-        ErrorKinds result = employeePasswordCheck(employee);
+        ErrorKinds result = employeePasswordCheck1(employee);
         if (ErrorKinds.CHECK_OK != result) {
             return result;
         }
@@ -81,7 +81,7 @@ public class EmployeeService {
     }
 
     // 従業員パスワードチェック
-    private ErrorKinds employeePasswordCheck(Employee employee) {
+    private ErrorKinds employeePasswordCheck1(Employee employee) {
 
         // 従業員パスワードの半角英数字チェック処理
         if (isHalfSizeCheckError(employee)) {
@@ -100,7 +100,7 @@ public class EmployeeService {
         return ErrorKinds.CHECK_OK;
     }
 
-    // 従業員パスワードの半角英数字チェック処理
+    /* 従業員パスワードの半角英数字チェック処理
     private boolean isHalfSizeCheckError(Employee employee) {
 
         // 半角英数字チェック
@@ -111,6 +111,29 @@ public class EmployeeService {
 
     // 従業員パスワードの8文字～16文字チェック処理
     public boolean isOutOfRangePassword(Employee employee) {
+
+        // 桁数チェック
+        int passwordLength = employee.getPassword().length();
+        return passwordLength < 8 || 16 < passwordLength;
+    }
+*/
+    private boolean isHalfSizeCheckError(Employee employee) {
+        // パスワードがnullの場合はエラーとする
+        if (employee.getPassword() == null || employee.getPassword().isEmpty()) {
+            return true; // チェックエラーとして扱う
+        }
+
+        // 半角英数字チェック
+        Pattern pattern = Pattern.compile("^[A-Za-z0-9]+$");
+        Matcher matcher = pattern.matcher(employee.getPassword());
+        return !matcher.matches();
+    }
+
+    public boolean isOutOfRangePassword(Employee employee) {
+        // パスワードがnullの場合はエラーとする
+        if (employee.getPassword() == null || employee.getPassword().isEmpty()) {
+            return true; // 範囲外として扱う
+        }
 
         // 桁数チェック
         int passwordLength = employee.getPassword().length();
