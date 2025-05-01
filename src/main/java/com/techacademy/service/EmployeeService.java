@@ -8,11 +8,11 @@ import java.util.regex.Pattern;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.techacademy.constants.ErrorKinds;
 import com.techacademy.entity.Employee;
 import com.techacademy.repository.EmployeeRepository;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class EmployeeService {
@@ -28,9 +28,12 @@ public class EmployeeService {
     // 従業員保存
     @Transactional
     public ErrorKinds save(Employee employee) {
+        if (employee == null) {
+            throw new IllegalArgumentException("Employee オブジェクトが null です");
+        }
 
         // パスワードチェック
-        ErrorKinds result = employeePasswordCheck1(employee);
+        ErrorKinds result = employeePasswordCheck(employee);
         if (ErrorKinds.CHECK_OK != result) {
             return result;
         }
@@ -46,6 +49,9 @@ public class EmployeeService {
         employee.setCreatedAt(now);
         employee.setUpdatedAt(now);
 
+        // **パスワード暗号化**
+        employee.setPassword(passwordEncoder.encode(employee.getPassword()));
+
         employeeRepository.save(employee);
         return ErrorKinds.SUCCESS;
     }
@@ -53,91 +59,67 @@ public class EmployeeService {
     // 従業員削除
     @Transactional
     public ErrorKinds delete(String code, UserDetail userDetail) {
-
-        // 自分を削除しようとした場合はエラーメッセージを表示
-        if (code.equals(userDetail.getEmployee().getCode())) {
-            return ErrorKinds.LOGINCHECK_ERROR;
+        Employee emp = findByCode(code);
+        if (emp == null) {
+            return ErrorKinds.BLANK_ERROR;
         }
-        Employee employee = findByCode(code);
-        LocalDateTime now = LocalDateTime.now();
-        employee.setUpdatedAt(now);
-        employee.setDeleteFlg(true);
 
+        LocalDateTime now = LocalDateTime.now();
+        emp.setUpdatedAt(now);
+        emp.setDeleteFlg(true);
+
+        employeeRepository.save(emp);
         return ErrorKinds.SUCCESS;
     }
 
-    // 従業員一覧表示処理
+    // 従業員一覧取得
     public List<Employee> findAll() {
         return employeeRepository.findAll();
     }
 
-    // 1件を検索
+    // 1件取得
     public Employee findByCode(String code) {
-        // findByIdで検索
         Optional<Employee> option = employeeRepository.findById(code);
-        // 取得できなかった場合はnullを返す
-        Employee employee = option.orElse(null);
-        return employee;
+        return option.orElse(null);
     }
 
-    // 従業員パスワードチェック
-    private ErrorKinds employeePasswordCheck1(Employee employee) {
+    // パスワードチェック
+    private ErrorKinds employeePasswordCheck(Employee employee) {
+        if (employee.getPassword() == null || employee.getPassword().isEmpty()) {
+            System.out.println("パスワードが入力されていません");
+            return ErrorKinds.BLANK_ERROR;
+        }
 
-        // 従業員パスワードの半角英数字チェック処理
-        if (isHalfSizeCheckError(employee)) {
-
+        if (isHalfSizeCheckError(employee.getPassword())) {
             return ErrorKinds.HALFSIZE_ERROR;
         }
 
-        // 従業員パスワードの8文字～16文字チェック処理
-        if (isOutOfRangePassword(employee)) {
-
+        if (isOutOfRangePassword(employee.getPassword())) {
             return ErrorKinds.RANGECHECK_ERROR;
         }
-
-        employee.setPassword(passwordEncoder.encode(employee.getPassword()));
 
         return ErrorKinds.CHECK_OK;
     }
 
-    /* 従業員パスワードの半角英数字チェック処理
-    private boolean isHalfSizeCheckError(Employee employee) {
+    // 半角英数字チェック
+    private boolean isHalfSizeCheckError(String password) {
+        if (password == null || password.isEmpty()) {
+            return true;
+        }
 
-        // 半角英数字チェック
         Pattern pattern = Pattern.compile("^[A-Za-z0-9]+$");
-        Matcher matcher = pattern.matcher(employee.getPassword());
+        Matcher matcher = pattern.matcher(password);
         return !matcher.matches();
     }
 
-    // 従業員パスワードの8文字～16文字チェック処理
-    public boolean isOutOfRangePassword(Employee employee) {
-
-        // 桁数チェック
-        int passwordLength = employee.getPassword().length();
-        return passwordLength < 8 || 16 < passwordLength;
-    }
-*/
-    private boolean isHalfSizeCheckError(Employee employee) {
-        // パスワードがnullの場合はエラーとする
-        if (employee.getPassword() == null || employee.getPassword().isEmpty()) {
-            return true; // チェックエラーとして扱う
+    // 文字数チェック（8文字～16文字）
+    private boolean isOutOfRangePassword(String password) {
+        if (password == null || password.isEmpty()) {
+            return true;
         }
 
-        // 半角英数字チェック
-        Pattern pattern = Pattern.compile("^[A-Za-z0-9]+$");
-        Matcher matcher = pattern.matcher(employee.getPassword());
-        return !matcher.matches();
+        int passwordLength = password.length();
+        return passwordLength < 8 || passwordLength > 16;
     }
-
-    public boolean isOutOfRangePassword(Employee employee) {
-        // パスワードがnullの場合はエラーとする
-        if (employee.getPassword() == null || employee.getPassword().isEmpty()) {
-            return true; // 範囲外として扱う
-        }
-
-        // 桁数チェック
-        int passwordLength = employee.getPassword().length();
-        return passwordLength < 8 || 16 < passwordLength;
-    }
-
 }
+
